@@ -1,2 +1,1 @@
-- Fixed icon sizes
-- Fixed leaving group not working
+- Added voice chat permissions

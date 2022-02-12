@@ -4,10 +4,11 @@ import de.maxhenkel.voicechat.Voicechat;
 import de.maxhenkel.voicechat.VoicechatClient;
 import de.maxhenkel.voicechat.config.ServerConfig;
 import de.maxhenkel.voicechat.plugins.PluginManager;
-import de.maxhenkel.voicechat.voice.client.microphone.ALMicrophone;
-import de.maxhenkel.voicechat.voice.client.microphone.JavaxMicrophone;
 import de.maxhenkel.voicechat.voice.client.microphone.Microphone;
-import de.maxhenkel.voicechat.voice.common.*;
+import de.maxhenkel.voicechat.voice.client.microphone.MicrophoneManager;
+import de.maxhenkel.voicechat.voice.common.MicPacket;
+import de.maxhenkel.voicechat.voice.common.NetworkMessage;
+import de.maxhenkel.voicechat.voice.common.Utils;
 import net.minecraft.client.Minecraft;
 
 import javax.annotation.Nullable;
@@ -47,13 +48,8 @@ public class MicThread extends Thread {
 
         setDaemon(true);
         setName("MicrophoneThread");
-        if (VoicechatClient.CLIENT_CONFIG.javaMicrophoneImplementation.get()) {
-            mic = new JavaxMicrophone(SoundManager.SAMPLE_RATE, SoundManager.FRAME_SIZE, VoicechatClient.CLIENT_CONFIG.microphone.get());
-        } else {
-            mic = new ALMicrophone(SoundManager.SAMPLE_RATE, SoundManager.FRAME_SIZE, VoicechatClient.CLIENT_CONFIG.microphone.get());
-        }
 
-        mic.open();
+        mic = MicrophoneManager.getMicrophone();
     }
 
     @Override
@@ -232,16 +228,17 @@ public class MicThread extends Thread {
     }
 
     private final AtomicLong sequenceNumber = new AtomicLong();
-    private volatile boolean stopPacketSent;
+    private volatile boolean stopPacketSent = true;
 
     private void sendAudioPacket(short[] data, boolean whispering) {
-        if (PluginManager.instance().onClientSound(data)) {
+        short[] audio = PluginManager.instance().onClientSound(data, whispering);
+        if (audio == null) {
             return;
         }
 
         try {
             if (connection != null && connection.isAuthenticated()) {
-                byte[] encoded = encoder.encode(data);
+                byte[] encoded = encoder.encode(audio);
                 connection.sendToServer(new NetworkMessage(new MicPacket(encoded, whispering, sequenceNumber.getAndIncrement())));
                 stopPacketSent = false;
             }
@@ -250,7 +247,7 @@ public class MicThread extends Thread {
         }
         try {
             if (client != null && client.getRecorder() != null) {
-                client.getRecorder().appendChunk(Minecraft.getInstance().getUser().getGameProfile(), System.currentTimeMillis(), Utils.convertToStereo(data));
+                client.getRecorder().appendChunk(Minecraft.getInstance().getUser().getGameProfile(), System.currentTimeMillis(), Utils.convertToStereo(audio));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -259,10 +256,6 @@ public class MicThread extends Thread {
 
     private void sendStopPacket() {
         if (stopPacketSent) {
-            return;
-        }
-
-        if (PluginManager.instance().onClientSound(new short[0])) {
             return;
         }
 

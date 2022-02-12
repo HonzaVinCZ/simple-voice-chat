@@ -15,7 +15,7 @@ public class ForgeServerConfig extends ServerConfig {
         voiceChatPort = wrapConfigEntry(builder
                 .worldRestart()
                 .comment("The port of the voice chat server")
-                .defineInRange("voice_chat.port", 24454, 0, 65535)
+                .defineInRange("voice_chat.port", 24454, -1, 65535)
         );
         voiceChatBindAddress = wrapConfigEntry(builder
                 .worldRestart()
@@ -86,6 +86,16 @@ public class ForgeServerConfig extends ServerConfig {
                 .worldRestart()
                 .comment("If spectators can talk to players they are spectating")
                 .define("voice_chat.spectator_player_possession", false)
+        );
+        forceVoiceChat = wrapConfigEntry(builder
+                .worldRestart()
+                .comment("If players without the mod should get kicked from the server")
+                .define("voice_chat.force_voice_chat", false)
+        );
+        loginTimeout = wrapConfigEntry(builder
+                .worldRestart()
+                .comment("The amount of milliseconds, the server should wait to check if the player has the mod installed", "Only active when force_voice_chat is set to true")
+                .defineInRange("voice_chat.login_timeout", 10_000, 100, Integer.MAX_VALUE)
         );
     }
 
